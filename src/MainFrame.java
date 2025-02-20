@@ -9,7 +9,9 @@ public class MainFrame extends JFrame {
     private JTabbedPane tabbedPane;
     private JTable tblInventario;
     private JTable tblUsuarios;
+    private JTable tblAsignaciones;
     private JButton btnNuevoItem; // Botón para agregar un nuevo item
+    private JButton btnAsignacion; // Botón para agregar un nuevo item
 
     public MainFrame(String usuario) {
         this.usuarioLogueado = usuario;
@@ -20,6 +22,7 @@ public class MainFrame extends JFrame {
         initComponents();
         cargarDatosInventario();
         cargarDatosUsuarios();
+        cargarAsignaciones();
     }
 
     private void initComponents() {
@@ -59,9 +62,39 @@ public class MainFrame extends JFrame {
         JScrollPane scrollUsuarios = new JScrollPane(tblUsuarios);
         panelUsuarios.add(scrollUsuarios, BorderLayout.CENTER);
 
+        //Panel de Asignaciones
+        JPanel panelAsignaciones = new JPanel(new BorderLayout());
+        tblAsignaciones = new JTable();
+        JScrollPane scrollAsignaciones = new JScrollPane(tblAsignaciones);
+        panelAsignaciones.add(scrollAsignaciones, BorderLayout.CENTER);
+
+        // Panel inferior para botones en el inventario
+        panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnAsignacion = new JButton("Asignar");
+        panelBotones.add(btnAsignacion);
+        panelAsignaciones.add(panelBotones, BorderLayout.SOUTH);
+
+        btnAsignacion.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                //Abrir el formulario para asignar un nuevo material
+                FormularioAsignacion formularioAsignacion = new FormularioAsignacion();
+                //Agregar un WindowListener para recargar la tabla al cerrar el formulario
+                formularioAsignacion.addWindowListener(new WindowAdapter() {
+                    @Override
+                    public void windowClosed(WindowEvent e) {
+                        //Recargar datos
+                        cargarAsignaciones();
+                    }
+                });
+                formularioAsignacion.setVisible(true);
+            }
+        });
+
         // Añadir pestañas al tabbedPane
         tabbedPane.addTab("Inventario", panelInventario);
         tabbedPane.addTab("Usuarios", panelUsuarios);
+        tabbedPane.addTab("Asignaciones", panelAsignaciones);
 
         add(tabbedPane);
     }
@@ -126,5 +159,32 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Error al cargar usuarios: " + ex.getMessage());
         }
         tblUsuarios.setModel(model);
+    }
+
+    private void cargarAsignaciones(){
+        DefaultTableModel model = new DefaultTableModel(new String[]{"ID", "Usuario", "Material", "Cantidad","Fecha de Asignación"}, 0);
+        try(Connection con = DBConnection.getConnection()){
+            String sql = "SELECT a.id, u.nombre AS nombre_usuario, i.nombre AS nombre_material, a.cantidad_asignada, a.asignado_en " +
+                    "FROM asignaciones a " +
+                    "JOIN usuarios u ON a.id_usuario = u.id " +
+                    "JOIN inventario i ON a.id_inventario = i.id";
+
+            Statement st = con.createStatement();
+            ResultSet rs = st.executeQuery(sql);
+
+            while (rs.next()){
+                int idAsignacion  = rs.getInt("id");
+                String nombreUsuario = rs.getString("nombre_usuario");
+                String nombreMaterial = rs.getString("nombre_material");
+                int cantidadAsignada = rs.getInt("cantidad_asignada");
+                String fechaAsignacion = rs.getString("asignado_en");
+
+                model.addRow(new Object[]{idAsignacion, nombreUsuario, nombreMaterial, cantidadAsignada, fechaAsignacion});
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error al cargar asignaciones: " + e.getMessage());
+        }
+        tblAsignaciones.setModel(model);
     }
 }
